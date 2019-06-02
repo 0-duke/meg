@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
+	"github.com/antzucaro/matchr"
 )
 
 const (
@@ -57,7 +60,7 @@ func main() {
 	}
 
 	// set up a rate limiter
-	rl := newRateLimiter(time.Duration(c.delay * 1000000))
+	//rl := newRateLimiter(time.Duration(c.delay * 1000000))
 
 	// the request and response channels for
 	// the worker pool
@@ -71,7 +74,7 @@ func main() {
 
 		go func() {
 			for req := range requests {
-				rl.Block(req.Hostname())
+				//rl.Block(req.Hostname())
 				responses <- c.requester(req)
 			}
 			wg.Done()
@@ -92,17 +95,81 @@ func main() {
 				fmt.Fprintf(os.Stderr, "request failed: %s\n", res.err)
 				continue
 			}
+			//Luca: Modify here
+			if (true){
+				parts := []string{c.output}
+				parts = append(parts, res.request.Hostname())
+				parts = append(parts, getPathFromStatus(res.status))
 
-			path, err := res.save(c.output, c.noHeaders)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to save file: %s\n", err)
+				//p := path.Join(parts...)
+				p := strings.Join(parts, "/")
+				// Read al files in folder with status
+				files, err := ioutil.ReadDir(p)
+			    if err != nil {
+			        fmt.Fprintf(os.Stderr, "failed to read dir: %s\n", err)
+			    }
+
+			    res_content := []byte(res.String())
+				if c.noHeaders {
+					res_content = []byte(res.StringNoHeaders())
+				}
+
+			    // For each file, read it and compare it with current response
+			    // if not similar save, otherwise skip
+			    new_result := true
+
+			    for _, file := range files {
+			        html_from_file, err := ioutil.ReadFile(filepath.Join(p, file.Name()))
+			        if err != nil {
+			        	fmt.Fprintf(os.Stderr, "File read failed: %s\n", err)
+						continue
+			        }
+			        simil := 0.0
+			        // If content is text for one of the two comparisons compare string differences, otherwise compare html
+			        if (len(getTagsTokenizer(res_content)) == 0 || len(getTagsTokenizer(html_from_file)) == 0) {
+			        	simil = matchr.Jaro(fmt.Sprintf("%s", res_content), fmt.Sprintf("%s", html_from_file))
+			        } else {
+				        simil = similarity(res_content, html_from_file)
+			        }
+			        if c.verbose {
+			        	fmt.Printf("%f - %s%s - %s\n", simil, res.request.host, res.request.path, filepath.Join(p, file.Name()))
+			        }
+			        if(simil >= 0.70) {
+			        	new_result = false
+			        	break
+			        }
+			        
+			        
+			    }
+			    line := ""
+				if (new_result) {
+					fsave_path, err := res.save(c.output, c.noHeaders)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "failed to save file: %s\n", err)
+					}
+					line = fmt.Sprintf("%s %s (%s)\n", fsave_path, res.request.URL(), res.status)
+				
+				} else {
+					line = fmt.Sprintf("%s %s (%s)\n", "NOT-SAVED", res.request.URL(), res.status)
+				}
+
+				fmt.Fprintf(index, "%s", line)
+				if c.verbose {
+					fmt.Printf("%s", line)
+				}
+			} else {
+				fsave_path, err := res.save(c.output, c.noHeaders)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to save file: %s\n", err)
+				}
+				line := fmt.Sprintf("%s %s (%s)\n", fsave_path, res.request.URL(), res.status)
+				fmt.Fprintf(index, "%s", line)
+				if c.verbose {
+					fmt.Printf("%s", line)
+				}
 			}
 
-			line := fmt.Sprintf("%s %s (%s)\n", path, res.request.URL(), res.status)
-			fmt.Fprintf(index, "%s", line)
-			if c.verbose {
-				fmt.Printf("%s", line)
-			}
+			
 		}
 		owg.Done()
 	}()
@@ -189,4 +256,12 @@ func readLinesOrLiteral(arg, argDefault string) ([]string, error) {
 func isFile(path string) bool {
 	f, err := os.Stat(path)
 	return err == nil && f.Mode().IsRegular()
+}
+
+func getPathFromStatus(status string) string {
+	if(len(status) >= 3){
+		return status[0:3]
+	} else {
+		return "XXX"
+	}
 }

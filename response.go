@@ -67,10 +67,12 @@ func (r response) save(pathPrefix string, noHeaders bool) (string, error) {
 		content = []byte(r.StringNoHeaders())
 	}
 
+	//fmt.Printf("Result %f", similarity(content,content))
 	checksum := sha1.Sum(content)
 	parts := []string{pathPrefix}
 
 	parts = append(parts, r.request.Hostname())
+	parts = append(parts, getPathFromStatus(r.status))
 	parts = append(parts, fmt.Sprintf("%x", checksum))
 
 	p := path.Join(parts...)
