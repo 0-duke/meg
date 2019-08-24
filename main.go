@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	userAgent = "Mozilla/5.0 (compatible; meg/0.2; +https://github.com/tomnomnom/meg)"
+	userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 
 	// argument defaults
 	defaultPathsFile = "./paths"
@@ -115,7 +115,7 @@ func main() {
 				}
 
 			    // For each file, read it and compare it with current response
-			    // if not similar save, otherwise skip
+			    // if not similar save. Otherwise skip
 			    new_result := true
 
 			    for _, file := range files {
@@ -125,16 +125,24 @@ func main() {
 						continue
 			        }
 			        simil := 0.0
+			        res_content_without_headers := excludeHTTPHeaders(res_content)
+			        html_from_file_without_headers := excludeHTTPHeaders(html_from_file)
+
+			        //If both HTTP Body are empty there is no reason to proceed with more computational expensive tests 
+			        if (len(res_content_without_headers) == 0 && len(html_from_file_without_headers) == 0){
+			        	new_result = false
+			        	break
+			        }
 			        // If content is text for one of the two comparisons compare string differences, otherwise compare html
-			        if (len(getTagsTokenizer(res_content)) == 0 || len(getTagsTokenizer(html_from_file)) == 0) {
-			        	simil = matchr.Jaro(fmt.Sprintf("%s", res_content), fmt.Sprintf("%s", html_from_file))
+			        if (len(getTagsTokenizer(res_content_without_headers)) == 0 || len(getTagsTokenizer(html_from_file_without_headers)) == 0) {
+			        	simil = matchr.Jaro(fmt.Sprintf("%s", res_content_without_headers), fmt.Sprintf("%s", html_from_file_without_headers))
 			        } else {
-				        simil = similarity(res_content, html_from_file)
+				        simil = similarity(res_content, html_from_file_without_headers)
 			        }
 			        if c.verbose {
 			        	fmt.Printf("%f - %s%s - %s\n", simil, res.request.host, res.request.path, filepath.Join(p, file.Name()))
 			        }
-			        if(simil >= 0.70) {
+			        if(simil >= 0.80) {
 			        	new_result = false
 			        	break
 			        }
