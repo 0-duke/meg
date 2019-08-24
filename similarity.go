@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"strings"
 	"golang.org/x/net/html"
+	"regexp"
 	"fmt"
 )
 
@@ -109,4 +110,24 @@ func similarity(html1, html2 []byte) float64 {
 	structS := structuralSimilarity(html1, html2)
 	styleS := styleSimilarity(html1, html2)
 	return k * structS + (1 - k) * styleS
+}
+
+func excludeHTTPHeaders(html []byte) []byte {
+	//We use "< HTTP/1.1" since meg is using this fixed string to created the output
+	var httpResponseHeaderRegExp = `< HTTP\/1.1(.*\n)+< .+?\n\n`
+	httpRespHeader := regexp.MustCompile(httpResponseHeaderRegExp)
+	indexes := httpRespHeader.FindAllIndex([]byte(html), -1)
+
+	// If there is one match it's OK and proceed to extract the HTTP Body
+	// Otherwise there is an error and it's better to return the input as it is.
+	if (len(indexes) == 1){
+		for _, j := range indexes {
+			// j[0] will always contain the starting position of the match
+			// j[1] will always contain the ending position of the match
+			// we use the latter
+			return html[j[1]:]
+		}
+	} 
+	
+	return html
 }
