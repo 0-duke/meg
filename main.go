@@ -158,7 +158,9 @@ func main() {
 					line = fmt.Sprintf("%s %s (%s)\n", fsave_path, res.request.URL(), res.status)
 				
 				} else {
-					line = fmt.Sprintf("%s %s (%s)\n", "NOT-SAVED", res.request.URL(), res.status)
+					if c.verbose {
+						line = fmt.Sprintf("%s %s (%s)\n", "NOT-SAVED", res.request.URL(), res.status)
+					}
 				}
 
 				fmt.Fprintf(index, "%s", line)
