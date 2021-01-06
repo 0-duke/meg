@@ -69,7 +69,7 @@ func main() {
 	rLimit.Max = 1048576
 	rLimit.Cur = 1048576
 	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
-	if err != nill {
+	if err != nil {
 		fmt.Println("Error Setting RLimit ", err)
 	}
 	
