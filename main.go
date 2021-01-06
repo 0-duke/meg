@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"github.com/antzucaro/matchr"
+	"syscall"
 )
 
 const (
@@ -59,6 +60,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Increase the soft limit fd open
+	var rLimit syscall.Rlimit
+	err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting RLimit ", err)
+	}
+	rLimit.Max = 1048576
+	rLimit.Cur = 1048576
+	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nill {
+		fmt.Println("Error Setting RLimit ", err)
+	}
+	
+	
 	// set up a rate limiter
 	//rl := newRateLimiter(time.Duration(c.delay * 1000000))
 
